@@ -1,0 +1,28 @@
+---
+
+- hosts: all
+  remote_user: root
+  tasks:
+
+    - name: Checking if a kernel restart is needed
+      shell: |
+        if [ $(lsb_release -i -s) == "Debian" ]; then
+          current="$(uname -a | awk '{ print $7 }')"
+        elif [ $(lsb_release -i -s) == "Ubuntu" ]; then
+          current="$(uname -r | cut -d"-" -f1-2).$(uname -v | cut -d"#" -f2 | cut -d"-" -f1)"
+        fi
+        last=$(dpkg -l | grep linux-image-`uname -a | awk '{ print $3 }'` | awk '{ print $3 }')
+        if [ ! "$last" == "" ] && [ ! "$current" == "$last" ]; then
+          echo "reboot"
+        elif [ "$last" == "" ]; then
+          echo "error"
+        else
+          echo "unknown"
+        fi
+      args:
+          executable: /bin/bash
+      register: reboot_hint
+      ignore_errors: False
+      changed_when: "reboot_hint.stdout == 'reboot'"
+      failed_when: "reboot_hint.stdout == 'error'"
+      when: ansible_os_family == 'Debian'
